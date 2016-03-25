@@ -59,6 +59,7 @@ message FillerParameter {
     AVERAGE = 2;
   }
   optional VarianceNorm variance_norm = 8 [default = FAN_IN];
+  optional int32 num_groups = 9; // for identity filler
 }
 
 message NetParameter {
@@ -306,7 +307,7 @@ message ParamSpec {
 // NOTE
 // Update the next available ID when you add a new LayerParameter field.
 //
-// LayerParameter next available layer-specific ID: 143 (last added: scale_param)
+// LayerParameter next available layer-specific ID: 145 (last added: bin_label_data_layer)
 message LayerParameter {
   optional string name = 1; // the layer name
   optional string type = 2; // the layer type
@@ -357,6 +358,7 @@ message LayerParameter {
   optional ArgMaxParameter argmax_param = 103;
   optional BatchNormParameter batch_norm_param = 139;
   optional BiasParameter bias_param = 141;
+  optional BinLabelDataParameter bin_label_data_param = 144;
   optional ConcatParameter concat_param = 104;
   optional ContrastiveLossParameter contrastive_loss_param = 105;
   optional ConvolutionParameter convolution_param = 106;
@@ -372,6 +374,7 @@ message LayerParameter {
   optional HDF5OutputParameter hdf5_output_param = 113;
   optional HingeLossParameter hinge_loss_param = 114;
   optional ImageDataParameter image_data_param = 115;
+  optional ImageLabelDataParameter image_label_data_param = 143;
   optional InfogainLossParameter infogain_loss_param = 116;
   optional InnerProductParameter inner_product_param = 117;
   optional LogParameter log_param = 134;
@@ -769,6 +772,62 @@ message ImageDataParameter {
   // data.
   optional bool mirror = 6 [default = false];
   optional string root_folder = 12 [default = ""];
+}
+
+message Slice {
+  repeated uint32 dim = 1;
+  repeated uint32 stride = 2;
+  repeated uint32 offset = 3;
+}
+
+message ImageLabelDataParameter {
+  // Specify the data source.
+  optional string image_list_path = 1;
+  optional string label_list_path = 2;
+  // Specify the batch size.
+  optional uint32 batch_size = 3 [default = 1];
+  // The rand_skip variable is for the data layer to skip a few data points
+  // to avoid all asynchronous sgd clients to start at the same point. The skip
+  // point would be set as rand_skip * rand(0,1). Note that rand_skip should not
+  // be larger than the number of keys in the database.
+  optional uint32 rand_skip = 4 [default = 0];
+  // Whether or not ImageLayer should shuffle the list of files at every epoch.
+  optional bool shuffle = 5 [default = false];
+
+  // Whether random sample image scales
+  optional bool rand_scale = 6 [default = false];
+  optional float min_scale = 7  [default = 1];
+  optional float max_scale = 8  [default = 1];
+
+  optional string data_dir = 9 [default = ""];
+
+  optional Slice label_slice = 10;
+
+  optional string image_dir = 11 [default = ""];
+  optional string label_dir = 12 [default = ""];
+
+  enum Padding {
+    ZERO = 0;
+    REFLECT = 1;
+  }
+
+  optional Padding padding = 13 [default = REFLECT];
+}
+
+message BinLabelDataParameter {
+  // Specify the data source.
+  optional string bin_list_path = 1;
+  optional string label_list_path = 2;
+  optional string bin_dir = 3 [default = ""];
+  optional string label_dir = 4 [default = ""];
+  // Specify the batch size.
+  optional uint32 batch_size = 5 [default = 1];
+  // Whether or not ImageLayer should shuffle the list of files at every epoch.
+  optional bool shuffle = 6 [default = false];
+
+  optional bool mirror = 7 [default = true];
+
+  optional Slice label_slice = 8;;
 }
 
 message InfogainLossParameter {

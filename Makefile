@@ -1,5 +1,7 @@
 PROJECT := caffe
 
+BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+
 CONFIG_FILE := Makefile.config
 # Explicitly check for the config file, otherwise make -k will proceed anyway.
 ifeq ($(wildcard $(CONFIG_FILE)),)
@@ -7,12 +9,15 @@ $(error $(CONFIG_FILE) not found. See $(CONFIG_FILE).example.)
 endif
 include $(CONFIG_FILE)
 
+CXXFLAGS += --std=c++11
+
+BUILD_DIR := $(BUILD_DIR)_$(BRANCH)
 BUILD_DIR_LINK := $(BUILD_DIR)
 ifeq ($(RELEASE_BUILD_DIR),)
-	RELEASE_BUILD_DIR := .$(BUILD_DIR)_release
+	RELEASE_BUILD_DIR ?= $(BUILD_DIR)_release
 endif
 ifeq ($(DEBUG_BUILD_DIR),)
-	DEBUG_BUILD_DIR := .$(BUILD_DIR)_debug
+	DEBUG_BUILD_DIR ?= $(BUILD_DIR)_debug
 endif
 
 DEBUG ?= 0
@@ -84,8 +89,10 @@ LINT_OUTPUTS := $(addsuffix .$(LINT_EXT), $(addprefix $(LINT_OUTPUT_DIR)/, $(NON
 EMPTY_LINT_REPORT := $(BUILD_DIR)/.$(LINT_EXT)
 NONEMPTY_LINT_REPORT := $(BUILD_DIR)/$(LINT_EXT)
 # PY$(PROJECT)_SRC is the python wrapper for $(PROJECT)
-PY$(PROJECT)_SRC := python/$(PROJECT)/_$(PROJECT).cpp
-PY$(PROJECT)_SO := python/$(PROJECT)/_$(PROJECT).so
+PY$(PROJECT)_SRC_DIR := python/$(PROJECT)
+PY$(PROJECT)_DST_DIR := $(BUILD_DIR)/python/$(PROJECT)
+PY$(PROJECT)_SRC := $(PY$(PROJECT)_SRC_DIR)/_$(PROJECT).cpp
+PY$(PROJECT)_SO := $(PY$(PROJECT)_DST_DIR)/_$(PROJECT).so
 PY$(PROJECT)_HXX := include/$(PROJECT)/layers/python_layer.hpp
 # MAT$(PROJECT)_SRC is the mex entrance point of matlab package for $(PROJECT)
 MAT$(PROJECT)_SRC := matlab/+$(PROJECT)/private/$(PROJECT)_.cpp
@@ -481,15 +488,19 @@ tools: $(TOOL_BINS) $(TOOL_BIN_LINKS)
 
 examples: $(EXAMPLE_BINS)
 
-py$(PROJECT): py
+py$(PROJECT): py py_src
 
-py: $(PY$(PROJECT)_SO) $(PROTO_GEN_PY)
+py: $(PY$(PROJECT)_SO) $(PROTO_GEN_PY) $(PY$(PROJECT)_DST_DIR)
 
 $(PY$(PROJECT)_SO): $(PY$(PROJECT)_SRC) $(PY$(PROJECT)_HXX) | $(DYNAMIC_NAME)
 	@ echo CXX/LD -o $@ $<
 	$(Q)$(CXX) -shared -o $@ $(PY$(PROJECT)_SRC) \
 		-o $@ $(LINKFLAGS) -l$(LIBRARY_NAME) $(PYTHON_LDFLAGS) \
 		-Wl,-rpath,$(ORIGIN)/../../build/lib
+
+py_src:
+	rsync -a --include '*/' --include '*.py' --exclude '*' \
+	  $(PY$(PROJECT)_SRC_DIR)/ $(PY$(PROJECT)_DST_DIR)
 
 mat$(PROJECT): mat
 

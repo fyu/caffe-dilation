@@ -261,6 +261,49 @@ class BilinearFiller : public Filler<Dtype> {
   }
 };
 
+
+
+template <typename Dtype>
+class IdentityFiller : public Filler<Dtype> {
+ public:
+  explicit IdentityFiller(const FillerParameter& param)
+      : Filler<Dtype>(param), gaussian_filter_(param) {}
+  virtual void Fill(Blob<Dtype>* blob) {
+    CHECK_EQ(blob->num_axes(), 4) << "Blob must be 4 dim.";
+    if (this->filler_param_.has_std()) {
+      gaussian_filter_.Fill(blob);
+    }
+    int num_groups = blob->shape(1);
+    if (this->filler_param_.has_num_groups()) {
+      num_groups = this->filler_param_.num_groups();
+    }
+    Dtype filler_value = static_cast<double>(num_groups) / blob->shape(0);
+    if (this->filler_param_.has_value()) {
+      filler_value *= this->filler_param_.value();
+    }
+    CHECK_GE(blob->shape(0), num_groups);
+    CHECK_EQ(blob->shape(0) % num_groups, 0);
+
+    int out_group_size = blob->shape(0) / num_groups;
+    int in_group_size = blob->shape(1) / num_groups;
+    vector<int> index(4);
+    index[2] = blob->shape(2) / 2;
+    index[3] = blob->shape(3) / 2;
+    Dtype *data = blob->mutable_cpu_data();
+    for (int i = 0; i < num_groups; ++i) {
+      for (int j = i * out_group_size; j < (i + 1) * out_group_size; ++j) {
+        for (int k = i * in_group_size; k < (i + 1) * in_group_size; ++k) {
+          index[0] = j;
+          index[1] = k;
+          data[blob->offset(index)] = filler_value;
+        }
+      }
+    }
+  }
+ private:
+  GaussianFiller<Dtype> gaussian_filter_;
+};
+
 /**
  * @brief Get a specific filler from the specification given in FillerParameter.
  *
@@ -284,6 +327,8 @@ Filler<Dtype>* GetFiller(const FillerParameter& param) {
     return new MSRAFiller<Dtype>(param);
   } else if (type == "bilinear") {
     return new BilinearFiller<Dtype>(param);
+  } else if (type == "identity") {
+    return new IdentityFiller<Dtype>(param);
   } else {
     CHECK(false) << "Unknown filler name: " << param.type();
   }
