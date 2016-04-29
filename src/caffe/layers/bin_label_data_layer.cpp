@@ -170,7 +170,8 @@ void MirrorImage(cv::Mat &image) {
 //  return image(ranges.data()).clone();
 //}
 
-cv::Mat SliceMatrix(const cv::Mat &image, const caffe::Slice &slice) {
+cv::Mat SliceMatrix(const cv::Mat &image, const caffe::Slice &slice,
+                    int pad = 255) {
   int offset[2] = {0, 0};
   int stride[2] = {1, 1};
   if (slice.offset_size() == 1) {
@@ -186,13 +187,65 @@ cv::Mat SliceMatrix(const cv::Mat &image, const caffe::Slice &slice) {
     stride[1] = slice.stride(1);
   }
   CHECK_EQ(image.type(), CV_32F);
-  CHECK_GE(image.rows, offset[0] + stride[0] * slice.dim(0));
-  CHECK_GE(image.cols, offset[1] + stride[1] * slice.dim(1));
+//  CHECK_GE(image.rows, offset[0] + stride[0] * slice.dim(0));
+//  CHECK_GE(image.cols, offset[1] + stride[1] * slice.dim(1));
   cv::Mat out_image(slice.dim(0), slice.dim(1), CV_32F);
   for (int r = 0; r < slice.dim(0); ++r) {
-    for (int c = 0; c < slice.dim(1); ++c) {
-      out_image.at<float>(r, c) =
-          image.at<float>(r * stride[0] + offset[0], c * stride[1] + offset[1]);
+    int input_row = r * stride[0] + offset[0];
+    if (input_row >= image.rows) {
+      for (int c = 0; c < slice.dim(1); ++c) {
+        out_image.at<float>(r, c) = pad;
+      }
+    } else {
+      for (int c = 0; c < slice.dim(1); ++c) {
+        int input_col = c * stride[1] + offset[1];
+        if (input_col >= image.cols) {
+          out_image.at<float>(r, c) = pad;
+        } else {
+          out_image.at<float>(r, c) = image.at<float>(input_row, input_col);
+        }
+      }
+    }
+  }
+  return out_image;
+}
+
+cv::Mat SliceChannels(const cv::Mat &data, const caffe::Slice &slice) {
+  if (slice.dim_size() + slice.stride_size() + slice.offset_size() == 0) {
+    return data;
+  }
+  int offset[2] = {0, 0};
+  int stride[2] = {1, 1};
+  int dims[2] = {data.size[1], data.size[2]};
+  if (slice.offset_size() == 1) {
+    offset[0] = offset[1] = slice.offset(0);
+  } else if (slice.offset_size() > 1) {
+    offset[0] = slice.offset(0);
+    offset[1] = slice.offset(1);
+  }
+  if (slice.stride_size() == 1) {
+    stride[0] = stride[1] = slice.stride(0);
+  } else if (slice.stride_size() > 1) {
+    stride[0] = slice.stride(0);
+    stride[1] = slice.stride(1);
+  }
+  if (slice.dim_size() == 1) {
+    dims[0] = dims[1] = slice.dim(0);
+  } else {
+    dims[0] = slice.dim(0);
+    dims[1] = slice.dim(1);
+  }
+  vector<int> out_sizes(3);
+  out_sizes[0] = data.size[0];
+  out_sizes[1] = dims[0];
+  out_sizes[2] = dims[1];
+  cv::Mat out_image(out_sizes.size(), out_sizes.data(), CV_32F);
+  for (int i = 0; i < out_sizes[0]; ++i) {
+    for (int r = 0; r < dims[0]; ++r) {
+      for (int c = 0; c < dims[1]; ++c) {
+        out_image.at<float>(i, r, c) = data.at<float>(
+            i, r * stride[0] + offset[0], c * stride[1] + offset[1]);
+      }
     }
   }
   return out_image;
@@ -341,7 +394,10 @@ void BinLabelDataLayer<Dtype>::DataLayerSetUp(
   lines_id_ = 0;
 
   vector<int> data_shape(4);
-  vector<int> bin_shape = ReadImageShape(data_param.bin_dir() + bin_names_[0]);
+  // vector<int> bin_shape = ReadImageShape(data_param.bin_dir() + bin_names_[0]);
+  cv::Mat bin_image = SliceChannels(
+      ReadImage(data_param.bin_dir() + bin_names_[0]), data_param.bin_slice());
+  const int *bin_shape = bin_image.size;
   const int batch_size = data_param.batch_size();
   CHECK_GT(batch_size, 0) << "Positive batch size required";
   data_shape[0] = batch_size;
@@ -418,7 +474,11 @@ void BinLabelDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
   const string &label_dir = data_param.label_dir();
   caffe::Slice label_slice = data_param.label_slice();
 
-  vector<int> bin_shape = ReadImageShape(bin_dir + bin_names_[lines_id_]);
+  // vector<int> bin_shape = ReadImageShape(bin_dir + bin_names_[lines_id_]);
+  cv::Mat bin_image = SliceChannels(
+      ReadImage(data_param.bin_dir() + bin_names_[lines_id_]),
+      data_param.bin_slice());
+  const int *bin_shape = bin_image.size;
 
   int output_height = bin_shape[1];
   int output_width = bin_shape[2];
@@ -461,6 +521,7 @@ void BinLabelDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
     std::string label_path = label_dir + label_names_[lines_id_];
     DLOG(INFO) << "Reading " << image_path << std::endl;
     cv::Mat image = ReadImage(image_path);
+    image = SliceChannels(image, data_param.bin_slice());
     // std::cout << "Reading " << label_path << std::endl;
     cv::Mat cv_label = cv::imread(label_path, 0);
     CHECK_GT(cv_label.total(), 0);
@@ -484,7 +545,7 @@ void BinLabelDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
     CHECK_EQ(image.type(), out_data.type());
     image.copyTo(out_data);
 
-    // PadImage(cv_label, new_height, new_width, 255, label_data);
+//     PadImage(cv_label, new_height, new_width, 255, label_data);
 //    ExtendImage(cv_label, new_height, new_width, 0, 0, 255,
 //                label_data);
 

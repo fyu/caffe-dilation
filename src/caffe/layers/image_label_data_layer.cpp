@@ -290,7 +290,7 @@ void ImageLabelDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
 
   // Reshape according to the first image of each batch
   // on single input batches allows for inputs of varying dimension.
-  cv::Mat cv_img = ReadImageToCVMat(image_dir + image_lines_[lines_id_]);
+  cv::Mat cv_img = ReadImageToCVMat(image_dir + image_lines_[lines_id_], true);
   cv_img = PadImage(cv_img, crop_size);
 
   CHECK(cv_img.data) << "Could not load " << image_lines_[lines_id_];

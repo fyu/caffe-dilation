@@ -350,7 +350,7 @@ message LayerParameter {
 
   // Layer type-specific parameters.
   //
-  // Note: certain layers may have more than one computational engine
+  // Note: certain layers may have more than one computational sof
   // for their implementation. These layers include an Engine type and
   // engine parameter for selecting the implementation.
   // The default for the engine is set by the ENGINE switch at compile-time.
@@ -827,7 +827,8 @@ message BinLabelDataParameter {
 
   optional bool mirror = 7 [default = true];
 
-  optional Slice label_slice = 8;;
+  optional Slice label_slice = 8;
+  optional Slice bin_slice = 9;
 }
 
 message InfogainLossParameter {
