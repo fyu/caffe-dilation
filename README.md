@@ -1,3 +1,5 @@
+This is a fork of Caffe that support the training of dilation network described in [this ICLR conference paper](http://arxiv.org/abs/1511.07122).
+
 # Caffe
 
 [![Build Status](https://travis-ci.org/BVLC/caffe.svg?branch=master)](https://travis-ci.org/BVLC/caffe)
