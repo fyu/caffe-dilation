@@ -1,4 +1,4 @@
-This is a fork of Caffe that support the training of dilation network described in [this ICLR conference paper](http://arxiv.org/abs/1511.07122). It is updated with the master branch of [BVLC/caffe](https://github.com/BVLC/caffe) at commit [f28f5a](https://github.com/BVLC/caffe/commit/f28f5ae2f2453f42b5824723efc326a04dd16d85).
+This is a fork of Caffe that support the training of dilation network described in [this ICLR conference paper](http://arxiv.org/abs/1511.07122). It is updated with the master branch of [BVLC/caffe](https://github.com/BVLC/caffe) at commit [f28f5a](https://github.com/BVLC/caffe/commit/f28f5ae2f2453f42b5824723efc326a04dd16d85) (June 27, 2016).
 
 # Caffe
 
